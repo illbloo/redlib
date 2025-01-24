@@ -172,7 +172,7 @@ pub struct Flags {
 	pub stickied: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Media {
 	pub url: String,
 	pub alt_url: String,
@@ -601,7 +601,7 @@ pub struct Params {
 	pub before: Option<String>,
 }
 
-#[derive(Default, Serialize)]
+#[derive(Clone, Default, Serialize)]
 pub struct Preferences {
 	#[serde(skip)]
 	pub available_themes: Vec<String>,

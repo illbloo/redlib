@@ -18,7 +18,7 @@ use std::collections::{HashMap, HashSet};
 // STRUCTS
 #[derive(Template)]
 #[template(path = "post.html")]
-struct PostTemplate {
+pub struct PostTemplate {
 	comments: Vec<Comment>,
 	post: Post,
 	sort: String,
@@ -27,6 +27,29 @@ struct PostTemplate {
 	url: String,
 	url_without_query: String,
 	comment_query: String,
+}
+
+impl PostTemplate {
+	pub fn new(
+		post: Post,
+		comments: Vec<Comment>,
+		sort: String,
+		prefs: Preferences,
+		single_thread: bool,
+		url: String,
+		comment_query: String,
+	) -> PostTemplate {
+		PostTemplate {
+			post,
+			comments,
+			sort,
+			prefs,
+			single_thread,
+			url: url.clone(),
+			url_without_query: url.trim_end_matches(&format!("?q={comment_query}&type=comment")).to_string(),
+			comment_query,
+		}
+	}
 }
 
 static COMMENT_SEARCH_CAPTURE: Lazy<Regex> = Lazy::new(|| Regex::new(r"\?q=(.*)&type=comment").unwrap());
@@ -74,14 +97,7 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 				return Ok(nsfw_landing(req, req_url).await.unwrap_or_default());
 			}
 
-			let query_body = match COMMENT_SEARCH_CAPTURE.captures(&url) {
-				Some(captures) => captures.get(1).unwrap().as_str().replace("%20", " ").replace('+', " "),
-				None => String::new(),
-			};
-
-			let query_string = format!("q={query_body}&type=comment");
-			let form = url::form_urlencoded::parse(query_string.as_bytes()).collect::<HashMap<_, _>>();
-			let query = form.get("q").unwrap().clone().to_string();
+			let query = comment_query(&url);
 
 			let comments = match query.as_str() {
 				"" => parse_comments(&response[1], &post.permalink, &post.author.name, highlighted_comment, &get_filters(&req), &req),
@@ -113,6 +129,17 @@ pub async fn item(req: Request<Body>) -> Result<Response<Body>, String> {
 }
 
 // COMMENTS
+
+/// Extract comment query param string from URL
+pub fn comment_query(url: &str) -> String {
+	let query_body = match COMMENT_SEARCH_CAPTURE.captures(&url) {
+		Some(captures) => captures.get(1).unwrap().as_str().replace("%20", " ").replace('+', " "),
+		None => String::new(),
+	};
+	
+	url::form_urlencoded::parse(format!("q={query_body}&type=comment").as_bytes()).collect::<HashMap<_, _>>()
+		.get("q").unwrap().clone().to_string()
+}
 
 fn parse_comments(json: &serde_json::Value, post_link: &str, post_author: &str, highlighted_comment: &str, filters: &HashSet<String>, req: &Request<Body>) -> Vec<Comment> {
 	// Parse the comment JSON into a Vector of Comments
