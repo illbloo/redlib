@@ -69,3 +69,7 @@ path = "src/main.rs"
 [[bin]]
 name = "scraper"
 path = "src/scraper/main.rs"
+
+[[bin]]
+name = "ssg"
+path = "src/ssg/main.rs"
