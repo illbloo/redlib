@@ -340,6 +340,7 @@ pub struct Post {
 	pub awards: Vec<Award>,
 	pub nsfw: bool,
 	pub out_url: Option<String>,
+	/// Websocket URL for live threads
 	pub ws_url: String,
 }
 
@@ -763,10 +764,7 @@ pub async fn parse_post(post: &Value) -> Post {
 	let poll = Poll::parse(&post["data"]["poll_data"]);
 
 	let body = if val(post, "removed_by_category") == "moderator" {
-		format!(
-			"<div class=\"md\"><p>[removed] — <a href=\"https://{}{permalink}\">view removed post</a></p></div>",
-			get_setting("REDLIB_PUSHSHIFT_FRONTEND").unwrap_or_else(|| String::from(crate::config::DEFAULT_PUSHSHIFT_FRONTEND)),
-		)
+		removed_post_link(&permalink)
 	} else {
 		rewrite_urls(&val(post, "selftext_html"))
 	};
@@ -1180,6 +1178,18 @@ pub fn time(created: f64) -> (String, String) {
 // val() function used to parse JSON from Reddit APIs
 pub fn val(j: &Value, k: &str) -> String {
 	j["data"][k].as_str().unwrap_or_default().to_string()
+}
+
+pub fn removed_post_link(permalink: &str) -> String {
+	format!(
+		"<div class=\"md\"><p>[removed] — <a href=\"https://{}{permalink}\">view removed post</a></p></div>",
+		get_setting("REDLIB_PUSHSHIFT_FRONTEND").unwrap_or_else(|| String::from(crate::config::DEFAULT_PUSHSHIFT_FRONTEND)),
+	)
+}
+
+pub fn format_selftext(selftext: &str) -> String {
+	markdown::to_html(selftext)
+		.replace("\n", "<br>")
 }
 
 //

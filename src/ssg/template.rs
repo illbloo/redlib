@@ -23,7 +23,7 @@ impl PostTemplater for SubmissionArchiveEntry {
             to_comments(self.comments.clone()),
             "new".to_string(),
             Preferences::default(),
-            true,
+            false,
             self.url.clone(),
             comment_query(&self.url),
         )

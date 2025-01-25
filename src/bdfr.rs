@@ -4,7 +4,8 @@
 // Models for Serene-Arc/bulk-downloader-for-reddit
 // https://github.com/Serene-Arc/bulk-downloader-for-reddit
 
-use crate::utils::{Author, Comment, Flags, Flair, Media, Post, Preferences};
+use crate::models::ThingKind;
+use crate::utils::{format_selftext, Author, Comment, Flags, Flair, Media, Post, Preferences};
 
 use std::error::Error;
 use serde::Deserialize;
@@ -12,23 +13,39 @@ use serde::Deserialize;
 /// BDFR representation of a Post (the original post in a Reddit thread).
 #[derive(Clone, Deserialize)]
 pub struct SubmissionArchiveEntry {
+    // Post title
 	pub title: String,
+    /// Fullname of the post (e.g. "t3_abcdef")
 	pub name: String,
+    /// Original URL of the post on Reddit
 	pub url: String,
+    /// Post text body
 	pub selftext: String,
+    /// Upvotes minus downvotes
 	pub score: i64,
+    /// Upvote-to-downvote ratio
 	pub upvote_ratio: f64,
+    /// Link to the post within the archive
 	pub permalink: String,
 	pub id: String,
+    /// Post author's Reddit username
 	pub author: String,
+    /// Flair text attached to the post
 	pub link_flair_text: String,
+    /// Number of comments on the post, including replies to other comments
 	pub num_comments: i64,
+    /// Whether the post is marked as NSFW
 	pub over_18: bool,
+    /// Whether the post is marked as containing spoilers
 	pub spoiler: bool,
+    /// Whether the post is pinned to the subreddit
 	pub pinned: bool,
+    /// Whether the post's comments section was locked the subreddit's mods
 	pub locked: bool,
 	pub distinguished: Option<String>,
+    /// Unix timestamp (UTC) of when the post was created
 	pub created_utc: f64,
+    /// Post comments, threaded
 	pub comments: Vec<CommentArchiveEntry>,
 }
 
@@ -41,7 +58,7 @@ impl SubmissionArchiveEntry {
     pub fn from_post(post: &Post, comments: &Vec<Comment>) -> Self {
         SubmissionArchiveEntry {
             title: post.title.clone(),
-            name: post.title.clone(), // TODO: figure out what this is actually supposed to be
+            name: post.id.clone(),
             url: post.ws_url.clone(),
             selftext: post.body.clone(),
             score: post.score.0.parse().unwrap_or(0),
@@ -81,7 +98,7 @@ impl SubmissionArchiveEntry {
         Ok(Post {
             title: self.title.clone(),
             ws_url: self.url.clone(),
-            body: self.selftext.clone(),
+            body: format_selftext(&self.selftext),
             score: (self.score.to_string(), "".to_string()),
             upvote_ratio: self.upvote_ratio as i64,
             permalink: self.permalink.clone(),
@@ -172,9 +189,9 @@ impl CommentArchiveEntry {
 
         Comment {
             id: self.id.clone(),
-            kind: "t1".to_string(),
+            kind: ThingKind::Comment.to_string(),
             parent_id: self.parent_id.clone(),
-            parent_kind: "".to_string(),
+            parent_kind: ThingKind::from_fullname(&self.parent_id).expect("parent_id must contain thing id (t1_, t2_, etc)").to_string(),
             post_link: "".to_string(),
             post_author: self.is_submitter.to_string(),
             body,
@@ -189,7 +206,7 @@ impl CommentArchiveEntry {
                 distinguished: self.distinguished.clone().unwrap_or("".to_string()),
             },
             score: (self.score.to_string(), "".to_string()),
-            rel_time: "".to_string(),
+            rel_time: self.created_utc.to_string(),
             created: self.created_utc.to_string(),
             edited: ("".to_string(), "".to_string()),
             replies: self.replies.iter().map(|reply| reply.to_comment()).collect(),

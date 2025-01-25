@@ -9,6 +9,7 @@ pub mod post;
 pub mod search;
 pub mod server;
 pub mod settings;
+pub mod models;
 pub mod ssg {
     pub mod template;
     pub mod util;
