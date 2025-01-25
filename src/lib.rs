@@ -10,10 +10,10 @@ pub mod search;
 pub mod server;
 pub mod settings;
 pub mod ssg {
+    pub mod template;
     pub mod util;
     pub mod writer;
 }
 pub mod subreddit;
-pub mod template;
 pub mod user;
 pub mod utils;

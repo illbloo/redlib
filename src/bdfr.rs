@@ -4,7 +4,7 @@
 // Models for Serene-Arc/bulk-downloader-for-reddit
 // https://github.com/Serene-Arc/bulk-downloader-for-reddit
 
-use crate::utils::{Author, Awards, Comment, Flags, Flair, Media, Post, Preferences};
+use crate::utils::{Author, Comment, Flags, Flair, Media, Post, Preferences};
 
 use std::error::Error;
 use serde::Deserialize;
@@ -30,6 +30,10 @@ pub struct SubmissionArchiveEntry {
 	pub distinguished: Option<String>,
 	pub created_utc: f64,
 	pub comments: Vec<CommentArchiveEntry>,
+}
+
+pub fn to_comments(entries: Vec<CommentArchiveEntry>) -> Vec<Comment> {
+    entries.iter().map(|entry| entry.to_comment()).collect()
 }
 
 impl SubmissionArchiveEntry {
@@ -72,6 +76,8 @@ impl SubmissionArchiveEntry {
             download_name: "asdfasdfsd".to_string(),
         };
 
+        let created = self.created_utc.to_string();
+
         Ok(Post {
             title: self.title.clone(),
             ws_url: self.url.clone(),
@@ -108,13 +114,13 @@ impl SubmissionArchiveEntry {
             thumbnail: media.clone(),
             media: media.clone(),
             domain: "".to_string(),
-            rel_time: "rel_time".to_string(),
-            created: "created".to_string(),
+            rel_time: created.clone(),
+            created,
             created_ts: self.created_utc.clone() as u64,
             num_duplicates: 0,
             comments: (String::new(), String::new()),
             gallery: Vec::new(),
-            awards: Awards(Vec::new()),
+            awards: Vec::new(),
             nsfw: self.over_18.clone(),
             out_url: None,
         })
@@ -188,7 +194,7 @@ impl CommentArchiveEntry {
             edited: ("".to_string(), "".to_string()),
             replies: self.replies.iter().map(|reply| reply.to_comment()).collect(),
             highlighted: self.stickied,
-            awards: Awards(Vec::new()),
+            awards: Vec::new(),
             collapsed: false,
             is_filtered: false,
             more_count: 0,

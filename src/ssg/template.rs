@@ -4,9 +4,10 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::bdfr::SubmissionArchiveEntry;
+use crate::bdfr::{to_comments, SubmissionArchiveEntry};
 use crate::post::{comment_query, PostTemplate};
-use crate::utils::Preferences;
+use crate::subreddit::SubredditTemplate;
+use crate::utils::{Post, Preferences, Subreddit};
 
 use clap::ValueEnum;
 use serde_json::Value as JsonValue;
@@ -19,7 +20,7 @@ impl PostTemplater for SubmissionArchiveEntry {
     fn template(&self) -> PostTemplate {
         PostTemplate::new(
             self.to_post().unwrap(),
-            self.comments.iter().map(|c| c.to_comment()).collect(),
+            to_comments(self.comments.clone()),
             "new".to_string(),
             Preferences::default(),
             true,
@@ -58,4 +59,40 @@ impl fmt::Display for InputFormat {
         };
         write!(f, "{:?}", s)
     }
+}
+
+/// Generate a SubredditTemplate for a static archive.
+pub fn create_subreddit(
+    posts: Vec<Post>,
+    title: &str,
+    description: &str,
+    prefs: Preferences,
+) -> Result<SubredditTemplate, Box<dyn Error>> {
+    println!("Creating subreddit template with {} posts", posts.len());
+
+    let no_posts = posts.is_empty();
+
+    Ok(SubredditTemplate {
+        sub: Subreddit {
+            name: "redlib".to_string(),
+            title: title.to_string(),
+            description: description.to_string(),
+            members: (String::new(), String::new()),
+            info: String::new(),
+            icon: String::new(),
+            active: (String::new(), String::new()),
+            wiki: false,
+            nsfw: false,
+        },
+        url: "example.com".to_string(),
+        posts,
+        sort: (String::new(), String::new()),
+        ends: (String::new(), String::new()),
+        prefs,
+        redirect_url: "redirect.example.com".to_string(),
+        is_filtered: false,
+        all_posts_filtered: false,
+        all_posts_hidden_nsfw: false,
+        no_posts,
+    })
 }

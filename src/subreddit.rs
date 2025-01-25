@@ -18,22 +18,22 @@ use time::{Duration, OffsetDateTime};
 // STRUCTS
 #[derive(Template)]
 #[template(path = "subreddit.html")]
-struct SubredditTemplate {
-	sub: Subreddit,
-	posts: Vec<Post>,
-	sort: (String, String),
-	ends: (String, String),
-	prefs: Preferences,
-	url: String,
-	redirect_url: String,
+pub struct SubredditTemplate {
+	pub sub: Subreddit,
+	pub posts: Vec<Post>,
+	pub sort: (String, String),
+	pub ends: (String, String),
+	pub prefs: Preferences,
+	pub url: String,
+	pub redirect_url: String,
 	/// Whether the subreddit itself is filtered.
-	is_filtered: bool,
+	pub is_filtered: bool,
 	/// Whether all fetched posts are filtered (to differentiate between no posts fetched in the first place,
 	/// and all fetched posts being filtered).
-	all_posts_filtered: bool,
+	pub all_posts_filtered: bool,
 	/// Whether all posts were hidden because they are NSFW (and user has disabled show NSFW)
-	all_posts_hidden_nsfw: bool,
-	no_posts: bool,
+	pub all_posts_hidden_nsfw: bool,
+	pub no_posts: bool,
 }
 
 #[derive(Template)]

@@ -20,13 +20,13 @@
 		<!-- Android -->
 		<meta name="mobile-web-app-capable" content="yes">
 		<!-- iOS Logo -->
-		<link href="/touch-icon-iphone.png" rel="apple-touch-icon">
+		<link href="{{ prefs.static_path }}/touch-icon-iphone.png" rel="apple-touch-icon">
 		<!-- OpenSearch description file -->
-		<link rel="search" type="application/opensearchdescription+xml" title="Search Redlib" href="/opensearch.xml">
+		<link rel="search" type="application/opensearchdescription+xml" title="Search Redlib" href="{{ prefs.static_path }}/opensearch.xml">
 		<!-- PWA Manifest -->
-		<link rel="manifest" type="application/json" href="/manifest.json">
-		<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico"> 
-		<link rel="stylesheet" type="text/css" href="/style.css?v={{ env!("CARGO_PKG_VERSION") }}">
+		<link rel="manifest" type="application/json" href="{{ prefs.static_path }}/manifest.json">
+		<link rel="shortcut icon" type="image/x-icon" href="{{ prefs.static_path }}/favicon.ico"> 
+		<link rel="stylesheet" type="text/css" href="{{ prefs.static_path }}/style.css?v={{ env!("CARGO_PKG_VERSION") }}">
 		<!-- Video quality -->
 		<div id="video_quality" data-value="{{ prefs.video_quality }}"></div>
 		{% endblock %}

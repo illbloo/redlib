@@ -49,7 +49,7 @@ pub enum ResourceType {
 }
 
 // Post flair with content, background color and foreground color
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Flair {
 	pub flair_parts: Vec<FlairPart>,
 	pub text: String,
@@ -100,14 +100,14 @@ impl FlairPart {
 	}
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Author {
 	pub name: String,
 	pub flair: Flair,
 	pub distinguished: String,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Poll {
 	pub poll_options: Vec<PollOption>,
 	pub voting_end_timestamp: (String, String),
@@ -135,7 +135,7 @@ impl Poll {
 	}
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct PollOption {
 	pub id: u64,
 	pub text: String,
@@ -165,7 +165,7 @@ impl PollOption {
 }
 
 // Post flags with nsfw and stickied
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Flags {
 	pub spoiler: bool,
 	pub nsfw: bool,
@@ -272,7 +272,7 @@ impl Media {
 	}
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct GalleryMedia {
 	pub url: String,
 	pub width: i64,
@@ -313,7 +313,7 @@ impl GalleryMedia {
 }
 
 // Post containing content, metadata and media
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Post {
 	pub id: String,
 	pub title: String,
@@ -337,7 +337,7 @@ pub struct Post {
 	pub num_duplicates: u64,
 	pub comments: (String, String),
 	pub gallery: Vec<GalleryMedia>,
-	pub awards: Awards,
+	pub awards: Vec<Award>,
 	pub nsfw: bool,
 	pub out_url: Option<String>,
 	pub ws_url: String,
@@ -473,7 +473,7 @@ pub struct Comment {
 	pub edited: (String, String),
 	pub replies: Vec<Comment>,
 	pub highlighted: bool,
-	pub awards: Awards,
+	pub awards: Vec<Award>,
 	pub collapsed: bool,
 	pub is_filtered: bool,
 	pub more_count: i64,
@@ -494,7 +494,7 @@ impl std::fmt::Display for Award {
 	}
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Awards(pub Vec<Award>);
 
 impl std::ops::Deref for Awards {
@@ -513,8 +513,8 @@ impl std::fmt::Display for Awards {
 
 // Convert Reddit awards JSON to Awards struct
 impl Awards {
-	pub fn parse(items: &Value) -> Self {
-		let parsed = items.as_array().unwrap_or(&Vec::new()).iter().fold(Vec::new(), |mut awards, item| {
+	pub fn parse(items: &Value) -> Vec<Award> {
+		items.as_array().unwrap_or(&Vec::new()).iter().fold(Vec::new(), |mut awards, item| {
 			let name = item["name"].as_str().unwrap_or_default().to_string();
 			let icon_url = format_url(item["resized_icons"][0]["url"].as_str().unwrap_or_default());
 			let description = item["description"].as_str().unwrap_or_default().to_string();
@@ -528,9 +528,7 @@ impl Awards {
 			});
 
 			awards
-		});
-
-		Self(parsed)
+		})
 	}
 }
 
@@ -601,7 +599,7 @@ pub struct Params {
 	pub before: Option<String>,
 }
 
-#[derive(Clone, Default, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct Preferences {
 	#[serde(skip)]
 	pub available_themes: Vec<String>,
@@ -627,6 +625,37 @@ pub struct Preferences {
 	pub filters: Vec<String>,
 	pub hide_awards: String,
 	pub hide_score: String,
+	#[serde(skip)]
+	pub static_path: String,
+}
+
+impl Default for Preferences {
+	fn default() -> Self {
+		Self {
+			available_themes: available_themes(),
+			theme: "system".to_string(),
+			front_page: "hot".to_string(),
+			layout: "classic".to_string(),
+			wide: "off".to_string(),
+			blur_spoiler: "on".to_string(),
+			show_nsfw: "off".to_string(),
+			blur_nsfw: "off".to_string(),
+			hide_sidebar_and_summary: "off".to_string(),
+			use_hls: "off".to_string(),
+			hide_hls_notification: "off".to_string(),
+			video_quality: "auto".to_string(),
+			autoplay_videos: "off".to_string(),
+			fixed_navbar: "on".to_string(),
+			disable_visit_reddit_confirmation: "off".to_string(),
+			comment_sort: "best".to_string(),
+			post_sort: "hot".to_string(),
+			subscriptions: Vec::new(),
+			filters: Vec::new(),
+			hide_awards: "off".to_string(),
+			hide_score: "off".to_string(),
+			static_path: "".to_string(),
+		}
+	}
 }
 
 fn serialize_vec_with_plus<S>(vec: &Vec<String>, serializer: S) -> Result<S::Ok, S::Error>
@@ -641,18 +670,22 @@ where
 #[include = "*.css"]
 pub struct ThemeAssets;
 
+/// Read available theme names from embedded css files.
+pub fn available_themes() -> Vec<String> {
+	// Always make the default "system" theme available.
+	let mut themes = vec!["system".to_string()];
+	for file in ThemeAssets::iter() {
+		let chunks: Vec<&str> = file.as_ref().split(".css").collect();
+		themes.push(chunks[0].to_owned());
+	}
+	themes
+}
+
 impl Preferences {
 	// Build preferences from cookies
 	pub fn new(req: &Request<Body>) -> Self {
-		// Read available theme names from embedded css files.
-		// Always make the default "system" theme available.
-		let mut themes = vec!["system".to_string()];
-		for file in ThemeAssets::iter() {
-			let chunks: Vec<&str> = file.as_ref().split(".css").collect();
-			themes.push(chunks[0].to_owned());
-		}
 		Self {
-			available_themes: themes,
+			available_themes: available_themes(),
 			theme: setting(req, "theme"),
 			front_page: setting(req, "front_page"),
 			layout: setting(req, "layout"),
@@ -673,6 +706,7 @@ impl Preferences {
 			filters: setting(req, "filters").split('+').map(String::from).filter(|s| !s.is_empty()).collect(),
 			hide_awards: setting(req, "hide_awards"),
 			hide_score: setting(req, "hide_score"),
+			static_path: "".to_string(),
 		}
 	}
 
@@ -722,7 +756,7 @@ pub async fn parse_post(post: &Value) -> Post {
 
 	let created_ts = post["data"]["created_utc"].as_f64().unwrap_or_default().round() as u64;
 
-	let awards: Awards = Awards::parse(&post["data"]["all_awardings"]);
+	let awards = Awards::parse(&post["data"]["all_awardings"]);
 
 	let permalink = val(post, "permalink");
 
@@ -1382,6 +1416,7 @@ mod tests {
 			filters: vec![],
 			hide_awards: "off".to_owned(),
 			hide_score: "off".to_owned(),
+			static_path: "./static".to_owned(),
 		};
 		let urlencoded = serde_urlencoded::to_string(prefs).expect("Failed to serialize Prefs");
 

@@ -7,15 +7,16 @@ use std::fs::{canonicalize, create_dir_all, read_dir, File};
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
-use redlib::ssg::util::output_path;
-use redlib::template::PostTemplater;
 use serde_json::Value;
 
-use redlib::{
-    post::PostTemplate,
-    template::InputFormat,
-    ssg::writer::{copy_static, write_templates},
+use redlib::bdfr::{to_comments, SubmissionArchiveEntry};
+use redlib::ssg::{
+    template::{InputFormat, create_subreddit},
+    util::output_path,
+    writer::write_all,
 };
+use redlib::post::PostTemplate;
+use redlib::utils::{Comment, Post, Preferences};
 
 /// Config for the generator (as well as the CLI parser itself)
 #[derive(Parser, Debug)]
@@ -51,6 +52,36 @@ struct Cli {
     )]
     #[arg(value_enum)]
     input_format: InputFormat,
+
+    #[arg(
+        short = 't',
+        long = "title",
+        value_name = "TITLE",
+        help = "Title for the generated site",
+        default_value = "Redlib Archive",
+    )]
+    archive_title: String,
+
+    #[arg(
+        short = 'd',
+        long = "desc",
+        value_name = "DESCRIPTION",
+        help = "Description for the generated site",
+        default_value = "An archive of Reddit posts.",
+    )]
+    archive_desc: String,
+}
+
+impl Cli {
+    /// Get template preferences for this configuration
+    pub fn template_prefs(&self) -> Preferences {
+        let mut prefs = Preferences::default();
+        prefs.static_path = "static".to_string();
+        prefs.show_nsfw = "on".to_string();
+        prefs.disable_visit_reddit_confirmation = "on".to_string();
+
+        prefs
+    }
 }
 
 #[tokio::main]
@@ -79,17 +110,27 @@ async fn create_site(config: &Cli) -> Result<(), Box<dyn Error>> {
         create_dir_all(&config.output)?;
     }
 
+    let prefs = config.template_prefs();
+
     println!("Indexing input files...");
     let paths = json_paths_recursive(&src_path)?;
 
-    println!("Creating templates...");
-    let tmpls = create_templates(paths, &out_dir, &config.input_format)?;
+    println!("Building posts...");
+    let posts = create_posts(paths, &out_dir, &config.input_format)?;
 
-    println!("Copying static files...");
-    copy_static(&out_dir).await?;
+    println!("Building subreddit page...");
+    let sub = create_subreddit(
+        posts.iter().map(|(_, (post, _))| post.clone()).collect(),
+        &config.archive_title,
+        &config.archive_desc,
+        prefs.clone(),
+    )?;
+
+    println!("Building post templates...");
+    let tmpls = build_post_templates(posts, prefs.clone())?;
 
     println!("Writing site files...");
-    write_templates(tmpls).await?;
+    write_all(tmpls, sub, &config.output, prefs.static_path).await?;
 
     println!("Site generated at {}", &config.output);
 
@@ -113,27 +154,26 @@ fn json_paths_recursive(path: &Path) -> Result<Vec<PathBuf>, Box<dyn Error>> {
 }
 
 /// Create PostTemplate objects from JSON files
-fn create_templates(
+fn create_posts(
     paths: Vec<PathBuf>,
     out_dir: &PathBuf,
     input_format: &InputFormat,
-) -> Result<HashMap<PathBuf, PostTemplate>, Box<dyn Error>> {
+) -> Result<HashMap<PathBuf, (Post, Vec<Comment>)>, Box<dyn Error>> {
     let mut map = HashMap::new();
 
     for input_path in paths {
-        let (k, v) = create_template(&input_path, &out_dir, &input_format)?;
+        let (k, v) = create_post(&input_path, &out_dir, &input_format)?;
         map.insert(k, v);
     }
 
     Ok(map)
 }
 
-/// Create a PostTemplate from a JSON file
-fn create_template(
+fn create_post(
     input_path: &PathBuf,
     out_dir: &PathBuf, 
     input_format: &InputFormat,
-) -> Result<(PathBuf, PostTemplate), Box<dyn Error>> {
+) -> Result<(PathBuf, (Post, Vec<Comment>)), Box<dyn Error>> {
     println!("Creating template for {}", input_path.display());
     
     // Resolve output path
@@ -141,12 +181,39 @@ fn create_template(
     let out_path = output_path(input_path, out_dir, "html".to_string())?;
 
     // Read JSON file
-    println!("Reading JSON data");
+    println!("Reading JSON data into post");
     let json: Value = serde_json::from_reader(File::open(input_path)?)?;
 
-    // Build the PostTemplate
-    println!("Creating PostTemplate");
-    let tmpl = InputFormat::json_decode(input_format, json)?.template();
+    Ok(match input_format {
+        InputFormat::BDFRSelfPost => {
+            let subm: SubmissionArchiveEntry = serde_json::from_value(json)?;
+            let mut post = subm.to_post()?;
+            post.permalink = out_path.file_name().unwrap().to_string_lossy().to_string();
+            let comments = to_comments(subm.comments.clone());
 
-    Ok((out_path, tmpl))
+            (out_path, (post, comments))
+        },
+        InputFormat::RedditJson => todo!(),
+    })
+}
+
+fn build_post_templates(
+    posts: HashMap<PathBuf, (Post, Vec<Comment>)>,
+    prefs: Preferences,
+) -> Result<HashMap<PathBuf, PostTemplate>, Box<dyn Error>> {
+    let mut map = HashMap::new();
+
+    for (path, (post, comments)) in posts {
+        map.insert(path, PostTemplate::new(
+            post,
+            comments,
+            "new".to_string(),
+            prefs.clone(),
+            true,
+            "".to_string(),
+            "".to_string(),
+        ));
+    }
+
+    Ok(map)
 }

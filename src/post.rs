@@ -20,7 +20,7 @@ use std::collections::{HashMap, HashSet};
 #[template(path = "post.html")]
 pub struct PostTemplate {
 	comments: Vec<Comment>,
-	post: Post,
+	pub post: Post,
 	sort: String,
 	prefs: Preferences,
 	single_thread: bool,
@@ -225,7 +225,7 @@ fn build_comment(
 	// Note that in certain (seemingly random) cases, the count is simply wrong.
 	let more_count = data["count"].as_i64().unwrap_or_default();
 
-	let awards: Awards = Awards::parse(&data["all_awardings"]);
+	let awards = Awards::parse(&data["all_awardings"]);
 
 	let parent_kind_and_id = val(comment, "parent_id");
 	let parent_info = parent_kind_and_id.split('_').collect::<Vec<&str>>();
