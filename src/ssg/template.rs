@@ -4,7 +4,7 @@
 use std::error::Error;
 use std::fmt;
 
-use crate::bdfr::{to_comments, SubmissionArchiveEntry};
+use crate::bdfr::SubmissionArchiveEntry;
 use crate::post::{comment_query, PostTemplate};
 use crate::subreddit::SubredditTemplate;
 use crate::utils::{Post, Preferences, Subreddit};
@@ -20,7 +20,7 @@ impl PostTemplater for SubmissionArchiveEntry {
     fn template(&self) -> PostTemplate {
         PostTemplate::new(
             self.to_post().unwrap(),
-            to_comments(self.comments.clone()),
+            self.comments(),
             "new".to_string(),
             Preferences::default(),
             false,

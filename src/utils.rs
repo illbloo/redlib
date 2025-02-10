@@ -100,11 +100,32 @@ impl FlairPart {
 	}
 }
 
+impl Default for Flair {
+	fn default() -> Self {
+		Self {
+			flair_parts: Vec::new(),
+			text: String::new(),
+			background_color: String::new(),
+			foreground_color: String::new(),
+		}
+	}
+}
+
 #[derive(Clone, Serialize)]
 pub struct Author {
 	pub name: String,
 	pub flair: Flair,
 	pub distinguished: String,
+}
+
+impl Default for Author {
+	fn default() -> Self {
+		Self {
+			name: String::new(),
+			flair: Flair::default(),
+			distinguished: String::new(),
+		}
+	}
 }
 
 #[derive(Clone, Serialize)]
@@ -317,6 +338,7 @@ impl GalleryMedia {
 pub struct Post {
 	pub id: String,
 	pub title: String,
+	/// Subreddit slug (e.g. "pics")
 	pub community: String,
 	pub body: String,
 	pub author: Author,
@@ -464,12 +486,15 @@ pub struct Comment {
 	pub kind: String,
 	pub parent_id: String,
 	pub parent_kind: String,
+	/// Parent comment's permalink
 	pub post_link: String,
 	pub post_author: String,
 	pub body: String,
 	pub author: Author,
 	pub score: (String, String),
+	/// Relative time string since the comment was posted
 	pub rel_time: String,
+	/// Date comment was posted
 	pub created: String,
 	pub edited: (String, String),
 	pub replies: Vec<Comment>,

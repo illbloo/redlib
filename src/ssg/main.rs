@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use clap::Parser;
 use serde_json::Value;
 
-use redlib::bdfr::{to_comments, SubmissionArchiveEntry};
+use redlib::bdfr::SubmissionArchiveEntry;
 use redlib::ssg::{
     template::{InputFormat, create_subreddit},
     util::output_path,
@@ -189,7 +189,7 @@ fn create_post(
             let subm: SubmissionArchiveEntry = serde_json::from_value(json)?;
             let mut post = subm.to_post()?;
             post.permalink = out_path.file_name().unwrap().to_string_lossy().to_string();
-            let comments = to_comments(subm.comments.clone());
+            let comments = subm.comments();
 
             (out_path, (post, comments))
         },

@@ -49,38 +49,7 @@ pub struct SubmissionArchiveEntry {
 	pub comments: Vec<CommentArchiveEntry>,
 }
 
-pub fn to_comments(entries: Vec<CommentArchiveEntry>) -> Vec<Comment> {
-    entries.iter().map(|entry| entry.to_comment()).collect()
-}
-
 impl SubmissionArchiveEntry {
-    /// Create a SubmissionArchiveEntry from a Post
-    pub fn from_post(post: &Post, comments: &Vec<Comment>) -> Self {
-        SubmissionArchiveEntry {
-            title: post.title.clone(),
-            name: post.id.clone(),
-            url: post.ws_url.clone(),
-            selftext: post.body.clone(),
-            score: post.score.0.parse().unwrap_or(0),
-            upvote_ratio: post.upvote_ratio as f64,
-            permalink: post.permalink.clone(),
-            id: post.id.clone(),
-            author: post.author.name.clone(),
-            link_flair_text: post.flair.text.clone(),
-            num_comments: comments.len().try_into().unwrap_or(0),
-            over_18: post.flags.nsfw.clone(),
-            spoiler: post.flags.spoiler.clone(),
-            pinned: post.flags.stickied.clone(),
-            locked: false,
-            distinguished: Some(post.author.distinguished.clone()),
-            created_utc: post.created.parse().unwrap_or(0.0),
-            comments: comments
-                .iter()
-                .map(|reply| CommentArchiveEntry::from_comment(reply))
-                .collect(),
-        }
-    }
-
     /// Convert to a Post (for PostTemplate)
     pub fn to_post(&self) -> Result<Post, Box<dyn Error>> {
         println!("Creating Post from SubmissionArchiveEntry");
@@ -90,7 +59,7 @@ impl SubmissionArchiveEntry {
             width: 0,
             height: 0,
             poster: self.author.clone(),
-            download_name: "asdfasdfsd".to_string(),
+            download_name: String::new(),
         };
 
         let created = self.created_utc.to_string();
@@ -103,26 +72,16 @@ impl SubmissionArchiveEntry {
             upvote_ratio: self.upvote_ratio as i64,
             permalink: self.permalink.clone(),
             id: self.id.clone(),
-            community: "".to_string(),
+            community: String::new(),
             author: Author {
                 name: self.author.clone(),
-                flair: Flair {
-                    text: "".to_string(),
-                    flair_parts: Vec::new(),
-                    background_color: "".to_string(),
-                    foreground_color: "".to_string(),
-                },
-                distinguished: "".to_string(),
+                flair: Flair::default(),
+                distinguished: String::new(),
             },
             link_title: self.link_flair_text.clone(),
             poll: None,
             post_type: "link".to_string(),
-            flair: Flair {
-                text: self.link_flair_text.to_string(),
-                flair_parts: Vec::new(),
-                background_color: "".to_string(),
-                foreground_color: "".to_string(),
-            },
+            flair: Flair::default(),
             flags: Flags {
                 nsfw: self.over_18.clone(),
                 spoiler: self.spoiler.clone(),
@@ -130,7 +89,7 @@ impl SubmissionArchiveEntry {
             },
             thumbnail: media.clone(),
             media: media.clone(),
-            domain: "".to_string(),
+            domain: self.url.clone(),
             rel_time: created.clone(),
             created,
             created_ts: self.created_utc.clone() as u64,
@@ -142,74 +101,63 @@ impl SubmissionArchiveEntry {
             out_url: None,
         })
     }
+
+    pub fn comments(&self) -> Vec<Comment> {
+        self.comments.iter().map(|c| c.to_comment(&self)).collect()
+    }
 }
 
 /// BDFR representation of a Comment (a reply in a Reddit thread).
 #[derive(Clone, Deserialize)]
 pub struct CommentArchiveEntry {
+    /// Comment author's Reddit username
 	pub author: String,
+    /// ID of the comment
 	pub id: String,
+    /// Comment score (upvotes minus downvotes)
 	pub score: i64,
 	pub author_flair: Option<String>,
+    /// ID of the original post in this thread
 	pub submission: String,
+    /// Whether the comment is pinned
 	pub stickied: bool,
+    /// Post contents
 	pub body: String,
+    /// If author is the original post's author
 	pub is_submitter: bool,
 	pub distinguished: Option<String>,
 	pub created_utc: f64,
+    /// Fullname ID of the post or parent this is replying too (e.g. "t1_abcdef")
 	pub parent_id: String,
 	pub replies: Vec<CommentArchiveEntry>,
 }
 
 impl CommentArchiveEntry {
-    /// Create from a Comment object
-    pub fn from_comment(comment: &Comment) -> Self {
-        CommentArchiveEntry {
-            author: comment.author.name.clone(),
-            id: comment.id.clone(),
-            score: comment.score.0.parse().unwrap_or(0),
-            author_flair: Some(comment.author.flair.text.clone()),
-            submission: comment.parent_id.clone(),
-            stickied: comment.highlighted.clone(),
-            body: comment.body.clone(),
-            is_submitter: comment.post_author == comment.author.name,
-            distinguished: Some(comment.author.distinguished.clone()),
-            created_utc: comment.created.parse().unwrap_or(0.0),
-            parent_id: comment.parent_id.clone(),
-            replies: comment.replies
-                .iter()
-                .map(|reply| CommentArchiveEntry::from_comment(reply))
-                .collect(),
-        }
-    }
-
     /// Convert to a Comment, for PostTemplate
-    pub fn to_comment(&self) -> Comment {
-        let body = self.body.clone();
-
+    pub fn to_comment(&self, subm: &SubmissionArchiveEntry) -> Comment {
         Comment {
             id: self.id.clone(),
             kind: ThingKind::Comment.to_string(),
             parent_id: self.parent_id.clone(),
-            parent_kind: ThingKind::from_fullname(&self.parent_id).expect("parent_id must contain thing id (t1_, t2_, etc)").to_string(),
-            post_link: "".to_string(),
-            post_author: self.is_submitter.to_string(),
-            body,
+            parent_kind: ThingKind::from_fullname(&self.parent_id).expect("parent_id must contain thing id").to_string(),
+            post_link: subm.permalink.clone(),
+            post_author: subm.author.clone(),
+            body: self.body.clone(),
             author: Author {
                 name: self.author.clone(),
                 flair: Flair {
-                    text: self.author_flair.clone().unwrap_or_else(|| "".to_string()),
+                    text: self.author_flair.clone().unwrap_or_else(|| String::new()),
                     flair_parts: Vec::new(),
-                    background_color: "".to_string(),
-                    foreground_color: "".to_string(),
+                    background_color: String::new(),
+                    foreground_color: String::new(),
                 },
-                distinguished: self.distinguished.clone().unwrap_or("".to_string()),
+                distinguished: self.distinguished.clone().unwrap_or(String::new()),
             },
-            score: (self.score.to_string(), "".to_string()),
-            rel_time: self.created_utc.to_string(),
-            created: self.created_utc.to_string(),
-            edited: ("".to_string(), "".to_string()),
-            replies: self.replies.iter().map(|reply| reply.to_comment()).collect(),
+            score: (self.score.to_string(), String::new()),
+            rel_time: strtime(self.created_utc as i64).unwrap_or_else(|_| self.created_utc.to_string()),
+            created: String::new(),
+            edited: (String::new(), String::new()),
+            replies: self.replies.iter().map(|reply| reply.to_comment(&subm)).collect(),
             highlighted: self.stickied,
             awards: Vec::new(),
             collapsed: false,
@@ -218,4 +166,9 @@ impl CommentArchiveEntry {
             prefs: Preferences::default(),
         }
     }
+}
+
+fn strtime(timestamp: i64) -> Result<String, Box<dyn Error>> {
+    Ok(time::OffsetDateTime::from_unix_timestamp(timestamp)?
+        .format(&time::format_description::well_known::Rfc2822)?)
 }

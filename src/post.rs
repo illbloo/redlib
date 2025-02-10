@@ -282,3 +282,106 @@ fn build_comment(
 		prefs: Preferences::new(req),
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use hyper::{Request, Body};
+	use serde_json::json;
+
+	#[test]
+	fn test_comment_query() {
+		let test_cases = vec![
+			("https://reddit.com/r/sub/comments/123?q=test&type=comment", "test"),
+			("https://reddit.com/r/sub/comments/123?q=hello%20world&type=comment", "hello world"),
+			("https://reddit.com/r/sub/comments/123?q=test+query&type=comment", "test query"),
+			("https://reddit.com/r/sub/comments/123", ""),
+		];
+
+		for (url, expected) in test_cases {
+			assert_eq!(comment_query(url), expected);
+		}
+	}
+
+	#[test]
+	fn test_build_comment() {
+		let post_link = "/r/test/comments/123/";
+		let post_author = "original_poster";
+		let highlighted_comment = "abc123";
+		let filters = HashSet::new();
+		let req = Request::new(Body::empty());
+
+		// Test normal comment
+		let comment_data = json!({
+			"kind": "t1",
+			"data": {
+				"id": "comment1",
+				"author": "test_user",
+				"body": "Test comment",
+				"body_html": "<div>Test comment</div>",
+				"created_utc": 1600000000.0,
+				"score": 42,
+				"edited": false,
+				"distinguished": "",
+				"stickied": false,
+				"parent_id": "t3_123",
+				"author_flair_type": "text",
+				"author_flair_text": "",
+				"score_hidden": false,
+				"media_metadata": null
+			}
+		});
+
+		let comment = build_comment(
+			&comment_data,
+			&comment_data["data"],
+			vec![],
+			post_link,
+			post_author,
+			highlighted_comment,
+			&filters,
+			&req,
+		);
+
+		assert_eq!(comment.id, "comment1");
+		assert_eq!(comment.author.name, "test_user");
+		assert_eq!(comment.score.1, "42");
+		assert!(!comment.collapsed);
+		assert!(!comment.is_filtered);
+
+		// Test deleted comment
+		let deleted_comment = json!({
+			"kind": "t1",
+			"data": {
+				"id": "deleted1",
+				"author": "[deleted]",
+				"body": "[removed]",
+				"body_html": "<div>[removed]</div>",
+				"created_utc": 1600000000.0,
+				"score": 0,
+				"edited": false,
+				"distinguished": "",
+				"stickied": false,
+				"parent_id": "t3_123",
+				"author_flair_type": "text",
+				"author_flair_text": "",
+				"score_hidden": false,
+				"media_metadata": null
+			}
+		});
+
+		let comment = build_comment(
+			&deleted_comment,
+			&deleted_comment["data"],
+			vec![],
+			post_link,
+			post_author,
+			highlighted_comment,
+			&filters,
+			&req,
+		);
+
+		assert!(comment.body.contains("[removed]"));
+		assert!(comment.body.contains("view removed comment"));
+	}
+}

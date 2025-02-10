@@ -21,6 +21,15 @@ pub fn output_path(
 
 /// Copy directory recursively
 pub fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
+    // Check if source directory exists before trying to copy
+    if !src.as_ref().exists() {
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("Source directory does not exist: {}", src.as_ref().display())
+        ));
+    }
+
+    // Create destination directory and all parent directories
     create_dir_all(&dst)?;
 
     //println!("Copying {} to {}", src.as_ref().display(), dst.as_ref().display());
